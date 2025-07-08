@@ -71,14 +71,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.info("Discovered thermostat device: %s", device_address)
         hass.data[DOMAIN][entry.entry_id][ENTRY_DATA_DEVICES][device_address] = device_data
         
-        # Simply store the device for now - entities will be created on next platform setup
+        # Trigger climate platform reload to create entities for new devices
+        asyncio.run_coroutine_threadsafe(
+            hass.config_entries.async_unload_platforms(entry, ["climate"]), hass.loop
+        )
+        asyncio.run_coroutine_threadsafe(
+            hass.config_entries.async_forward_entry_setups(entry, ["climate"]), hass.loop
+        )
     
     client.register_device_discovery_callback(on_device_discovered)
     
     # Start device discovery
     await client.async_start_device_discovery()
 
-    # Set up platforms
+    # Set up platforms (will be empty initially, entities added via reload when devices discovered)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     _LOGGER.info("Futurehome FIMP integration setup completed")
