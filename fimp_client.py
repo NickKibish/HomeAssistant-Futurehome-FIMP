@@ -21,7 +21,16 @@ from .const import (
     FIMP_DISCOVERY_EVENT_TOPIC,
     FIMP_GATEWAY_TOPIC,
     FIMP_GATEWAY_EVENT_TOPIC,
+    FIMP_ZIGBEE_ADAPTER_TOPIC,
+    FIMP_ZIGBEE_ADAPTER_EVENT_TOPIC,
     FIMP_TOPIC_ROOT,
+    FIMP_SERVICE_THERMOSTAT,
+    FIMP_INTERFACE_CMD_NETWORK_GET_ALL_NODES,
+    FIMP_INTERFACE_EVT_NETWORK_ALL_NODES_REPORT,
+    FIMP_INTERFACE_CMD_THING_GET_INCLUSION_REPORT,
+    FIMP_INTERFACE_EVT_THING_INCLUSION_REPORT,
+    FIMP_INTERFACE_CMD_DISCOVERY_REQUEST,
+    FIMP_INTERFACE_EVT_DISCOVERY_REPORT,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -48,6 +57,8 @@ class FimpClient:
         self._connected = False
         self._message_callbacks: dict[str, list[Callable]] = {}
         self._loop = None
+        self._discovered_devices: dict[str, dict] = {}
+        self._device_discovery_callbacks: list[Callable] = []
 
     async def async_connect(self) -> None:
         """Connect to the MQTT broker."""
@@ -106,6 +117,15 @@ class FimpClient:
         self._client.subscribe(fimp_response_topic)
         self._client.subscribe(FIMP_DISCOVERY_EVENT_TOPIC)
         self._client.subscribe(FIMP_GATEWAY_EVENT_TOPIC)
+        self._client.subscribe(FIMP_ZIGBEE_ADAPTER_EVENT_TOPIC)
+        
+        # Register internal callbacks for device discovery
+        self.register_message_callback(
+            FIMP_ZIGBEE_ADAPTER_EVENT_TOPIC, self._handle_zigbee_adapter_message
+        )
+        self.register_message_callback(
+            FIMP_DISCOVERY_EVENT_TOPIC, self._handle_discovery_message
+        )
 
     def _on_connect(self, client, userdata, flags, rc) -> None:
         """Called when MQTT client connects."""
@@ -236,8 +256,152 @@ class FimpClient:
             value_type="null",
             value=None,
         )
+    
+    async def async_request_zigbee_devices(self) -> None:
+        """Request all Zigbee devices from the Zigbee adapter."""
+        _LOGGER.debug("Requesting Zigbee devices from adapter")
+        await self.async_send_fimp_message(
+            topic=FIMP_ZIGBEE_ADAPTER_TOPIC,
+            service="zigbee",
+            msg_type=FIMP_INTERFACE_CMD_NETWORK_GET_ALL_NODES,
+            value_type="null",
+            value=None,
+        )
+    
+    async def async_request_device_inclusion_report(self, device_address: str) -> None:
+        """Request inclusion report for a specific device."""
+        _LOGGER.debug("Requesting inclusion report for device %s", device_address)
+        await self.async_send_fimp_message(
+            topic=FIMP_ZIGBEE_ADAPTER_TOPIC,
+            service="zigbee",
+            msg_type=FIMP_INTERFACE_CMD_THING_GET_INCLUSION_REPORT,
+            value_type="string",
+            value=device_address,
+        )
+    
+    def _handle_zigbee_adapter_message(self, topic: str, message: dict[str, Any]) -> None:
+        """Handle messages from the Zigbee adapter."""
+        msg_type = message.get("type")
+        service = message.get("serv")
+        
+        if service != "zigbee":
+            return
+            
+        _LOGGER.debug("Received Zigbee adapter message: %s", msg_type)
+        
+        if msg_type == FIMP_INTERFACE_EVT_NETWORK_ALL_NODES_REPORT:
+            self._handle_all_nodes_report(message)
+        elif msg_type == FIMP_INTERFACE_EVT_THING_INCLUSION_REPORT:
+            self._handle_inclusion_report(message)
+    
+    def _handle_discovery_message(self, topic: str, message: dict[str, Any]) -> None:
+        """Handle system component discovery messages."""
+        msg_type = message.get("type")
+        service = message.get("serv")
+        
+        if service != "system" or msg_type != FIMP_INTERFACE_EVT_DISCOVERY_REPORT:
+            return
+            
+        discovery_data = message.get("val", {})
+        resource_type = discovery_data.get("resource_type")
+        adapter_info = discovery_data.get("adapter_info", {})
+        technology = adapter_info.get("technology")
+        
+        # Check if this is a Zigbee adapter
+        if resource_type == "ad" and technology == "zigbee":
+            _LOGGER.info("Found Zigbee adapter: %s", discovery_data.get("resource_full_name"))
+            # Request all Zigbee devices after finding the adapter
+            asyncio.run_coroutine_threadsafe(
+                self.async_request_zigbee_devices(), self.hass.loop
+            )
+    
+    def _handle_all_nodes_report(self, message: dict[str, Any]) -> None:
+        """Handle all nodes report from Zigbee adapter."""
+        nodes = message.get("val", [])
+        if not isinstance(nodes, list):
+            nodes = [nodes] if nodes else []
+            
+        _LOGGER.info("Received %d Zigbee nodes from adapter", len(nodes))
+        
+        for node in nodes:
+            address = node.get("address")
+            if address:
+                # Store node info and request detailed inclusion report
+                self._discovered_devices[address] = node
+                _LOGGER.debug("Found Zigbee device: %s (%s)", address, node.get("alias", "Unknown"))
+                # Request inclusion report to get service details
+                asyncio.run_coroutine_threadsafe(
+                    self.async_request_device_inclusion_report(address), self.hass.loop
+                )
+    
+    def _handle_inclusion_report(self, message: dict[str, Any]) -> None:
+        """Handle inclusion report for a specific device."""
+        device_data = message.get("val", {})
+        address = device_data.get("address")
+        services = device_data.get("services", [])
+        comm_tech = device_data.get("comm_tech")
+        
+        # Only process Zigbee devices
+        if comm_tech != "zigbee":
+            return
+            
+        # Filter for thermostat services only
+        thermostat_services = [
+            service for service in services 
+            if service.get("name") == FIMP_SERVICE_THERMOSTAT
+        ]
+        
+        if not thermostat_services:
+            _LOGGER.debug("Device %s has no thermostat services, skipping", address)
+            return
+            
+        _LOGGER.info(
+            "Found Zigbee thermostat device: %s (%s) with %d thermostat services",
+            address,
+            device_data.get("product_name", "Unknown"),
+            len(thermostat_services)
+        )
+        
+        # Store full device data including services
+        if address in self._discovered_devices:
+            self._discovered_devices[address].update(device_data)
+        else:
+            self._discovered_devices[address] = device_data
+            
+        # Notify discovery callbacks
+        for callback in self._device_discovery_callbacks:
+            try:
+                callback(address, device_data)
+            except Exception as err:
+                _LOGGER.error("Error in device discovery callback: %s", err)
+    
+    def register_device_discovery_callback(self, callback: Callable[[str, dict], None]) -> None:
+        """Register a callback for when thermostat devices are discovered."""
+        self._device_discovery_callbacks.append(callback)
+    
+    def get_discovered_devices(self) -> dict[str, dict]:
+        """Get all discovered thermostat devices."""
+        return self._discovered_devices.copy()
+    
+    async def async_start_device_discovery(self) -> None:
+        """Start the device discovery process."""
+        _LOGGER.info("Starting Zigbee thermostat device discovery")
+        
+        # First request system component discovery to find adapters
+        await self.async_send_fimp_message(
+            topic=FIMP_DISCOVERY_TOPIC,
+            service="system",
+            msg_type=FIMP_INTERFACE_CMD_DISCOVERY_REQUEST,
+            value_type="null",
+            value=None,
+        )
 
     @property
     def is_connected(self) -> bool:
         """Return True if connected to MQTT broker."""
         return self._connected
+    
+    @property
+    def discovered_device_count(self) -> int:
+        """Return the number of discovered thermostat devices."""
+        return len(self._discovered_devices)

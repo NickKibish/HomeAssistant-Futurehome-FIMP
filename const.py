@@ -35,6 +35,10 @@ FIMP_DISCOVERY_EVENT_TOPIC = f"{FIMP_TOPIC_ROOT}/mt:evt/rt:discovery"
 FIMP_GATEWAY_TOPIC = f"{FIMP_TOPIC_ROOT}/mt:cmd/rt:ad/rn:gateway/ad:1"
 FIMP_GATEWAY_EVENT_TOPIC = f"{FIMP_TOPIC_ROOT}/mt:evt/rt:ad/rn:gateway/ad:1"
 
+# FIMP Zigbee Adapter topics
+FIMP_ZIGBEE_ADAPTER_TOPIC = f"{FIMP_TOPIC_ROOT}/mt:cmd/rt:ad/rn:zigbee/ad:1"
+FIMP_ZIGBEE_ADAPTER_EVENT_TOPIC = f"{FIMP_TOPIC_ROOT}/mt:evt/rt:ad/rn:zigbee/ad:1"
+
 # Common FIMP services
 FIMP_SERVICE_OUT_BIN_SWITCH = "out_bin_switch"
 FIMP_SERVICE_OUT_LVL_SWITCH = "out_lvl_switch"
@@ -52,6 +56,24 @@ FIMP_INTERFACE_CMD_LVL_GET_REPORT = "cmd.lvl.get_report"
 FIMP_INTERFACE_EVT_LVL_REPORT = "evt.lvl.report"
 FIMP_INTERFACE_CMD_SENSOR_GET_REPORT = "cmd.sensor.get_report"
 FIMP_INTERFACE_EVT_SENSOR_REPORT = "evt.sensor.report"
+
+# FIMP Network and discovery interfaces
+FIMP_INTERFACE_CMD_NETWORK_GET_ALL_NODES = "cmd.network.get_all_nodes"
+FIMP_INTERFACE_EVT_NETWORK_ALL_NODES_REPORT = "evt.network.all_nodes_report"
+FIMP_INTERFACE_CMD_THING_GET_INCLUSION_REPORT = "cmd.thing.get_inclusion_report"
+FIMP_INTERFACE_EVT_THING_INCLUSION_REPORT = "evt.thing.inclusion_report"
+FIMP_INTERFACE_CMD_DISCOVERY_REQUEST = "cmd.discovery.request"
+FIMP_INTERFACE_EVT_DISCOVERY_REPORT = "evt.discovery.report"
+
+# FIMP Thermostat interfaces
+FIMP_INTERFACE_CMD_MODE_GET_REPORT = "cmd.mode.get_report"
+FIMP_INTERFACE_CMD_MODE_SET = "cmd.mode.set"
+FIMP_INTERFACE_EVT_MODE_REPORT = "evt.mode.report"
+FIMP_INTERFACE_CMD_SETPOINT_GET_REPORT = "cmd.setpoint.get_report"
+FIMP_INTERFACE_CMD_SETPOINT_SET = "cmd.setpoint.set"
+FIMP_INTERFACE_EVT_SETPOINT_REPORT = "evt.setpoint.report"
+FIMP_INTERFACE_CMD_STATE_GET_REPORT = "cmd.state.get_report"
+FIMP_INTERFACE_EVT_STATE_REPORT = "evt.state.report"
 
 # FIMP Value types
 FIMP_VAL_TYPE_BOOL = "bool"

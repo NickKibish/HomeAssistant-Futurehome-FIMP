@@ -23,7 +23,7 @@ from .fimp_client import FimpClient
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[str] = []  # Will add platforms later
+PLATFORMS: list[str] = ["climate"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -64,6 +64,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         },
         ENTRY_DATA_DEVICES: {},
     }
+    
+    # Register device discovery callback
+    def on_device_discovered(device_address: str, device_data: dict) -> None:
+        """Handle discovered thermostat devices."""
+        _LOGGER.info("Discovered thermostat device: %s", device_address)
+        hass.data[DOMAIN][entry.entry_id][ENTRY_DATA_DEVICES][device_address] = device_data
+        
+        # Simply store the device for now - entities will be created on next platform setup
+    
+    client.register_device_discovery_callback(on_device_discovered)
+    
+    # Start device discovery
+    await client.async_start_device_discovery()
 
     # Set up platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
