@@ -1,0 +1,78 @@
+"""Constants for the Futurehome FIMP integration."""
+
+# Integration domain
+DOMAIN = "futurehome_fimp"
+
+# Configuration keys
+CONF_HUB_IP = "hub_ip"
+CONF_MQTT_USERNAME = "mqtt_username"
+CONF_MQTT_PASSWORD = "mqtt_password"
+CONF_MQTT_PORT = "mqtt_port"
+
+# Default values
+DEFAULT_MQTT_PORT = 1883
+DEFAULT_NAME = "Futurehome Hub"
+
+# FIMP Protocol constants
+FIMP_TOPIC_ROOT = "pt:j1"
+FIMP_MSG_TYPE_CMD = "cmd"
+FIMP_MSG_TYPE_EVT = "evt"
+FIMP_MSG_TYPE_RSP = "rsp"
+
+# FIMP Resource types
+FIMP_RT_DEVICE = "dev"
+FIMP_RT_LOCATION = "loc"
+FIMP_RT_ADAPTER = "ad"
+FIMP_RT_APP = "app"
+FIMP_RT_CLOUD = "cloud"
+FIMP_RT_DISCOVERY = "discovery"
+
+# FIMP Discovery topics
+FIMP_DISCOVERY_TOPIC = f"{FIMP_TOPIC_ROOT}/mt:cmd/rt:discovery"
+FIMP_DISCOVERY_EVENT_TOPIC = f"{FIMP_TOPIC_ROOT}/mt:evt/rt:discovery"
+
+# FIMP Gateway service
+FIMP_GATEWAY_TOPIC = f"{FIMP_TOPIC_ROOT}/mt:cmd/rt:ad/rn:gateway/ad:1"
+FIMP_GATEWAY_EVENT_TOPIC = f"{FIMP_TOPIC_ROOT}/mt:evt/rt:ad/rn:gateway/ad:1"
+
+# Common FIMP services
+FIMP_SERVICE_OUT_BIN_SWITCH = "out_bin_switch"
+FIMP_SERVICE_OUT_LVL_SWITCH = "out_lvl_switch"
+FIMP_SERVICE_SENSOR_TEMP = "sensor_temp"
+FIMP_SERVICE_SENSOR_HUMID = "sensor_humid"
+FIMP_SERVICE_METER_ELEC = "meter_elec"
+FIMP_SERVICE_THERMOSTAT = "thermostat"
+
+# FIMP Interface types
+FIMP_INTERFACE_CMD_BINARY_SET = "cmd.binary.set"
+FIMP_INTERFACE_CMD_BINARY_GET_REPORT = "cmd.binary.get_report"
+FIMP_INTERFACE_EVT_BINARY_REPORT = "evt.binary.report"
+FIMP_INTERFACE_CMD_LVL_SET = "cmd.lvl.set"
+FIMP_INTERFACE_CMD_LVL_GET_REPORT = "cmd.lvl.get_report"
+FIMP_INTERFACE_EVT_LVL_REPORT = "evt.lvl.report"
+FIMP_INTERFACE_CMD_SENSOR_GET_REPORT = "cmd.sensor.get_report"
+FIMP_INTERFACE_EVT_SENSOR_REPORT = "evt.sensor.report"
+
+# FIMP Value types
+FIMP_VAL_TYPE_BOOL = "bool"
+FIMP_VAL_TYPE_INT = "int"
+FIMP_VAL_TYPE_FLOAT = "float"
+FIMP_VAL_TYPE_STRING = "string"
+FIMP_VAL_TYPE_STR_ARRAY = "str_array"
+FIMP_VAL_TYPE_INT_ARRAY = "int_array"
+FIMP_VAL_TYPE_FLOAT_ARRAY = "float_array"
+FIMP_VAL_TYPE_STR_MAP = "str_map"
+FIMP_VAL_TYPE_INT_MAP = "int_map"
+FIMP_VAL_TYPE_FLOAT_MAP = "float_map"
+FIMP_VAL_TYPE_OBJECT = "object"
+FIMP_VAL_TYPE_NULL = "null"
+
+# Error messages
+ERROR_CANNOT_CONNECT = "cannot_connect"
+ERROR_INVALID_AUTH = "invalid_auth"
+ERROR_UNKNOWN = "unknown"
+
+# Entry data keys
+ENTRY_DATA_CLIENT = "client"
+ENTRY_DATA_HUB_INFO = "hub_info"
+ENTRY_DATA_DEVICES = "devices"

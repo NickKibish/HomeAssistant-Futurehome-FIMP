@@ -1,0 +1,32 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Futurehome FIMP",
+        "description": "Configure your Futurehome hub connection",
+        "data": {
+          "hub_ip": "Hub IP Address",
+          "mqtt_username": "MQTT Username",
+          "mqtt_password": "MQTT Password",
+          "mqtt_port": "MQTT Port (default: {default_port})"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the hub. Please check the IP address and network connectivity.",
+      "invalid_auth": "Invalid MQTT credentials. Please check the username and password.",
+      "unknown": "Unexpected error occurred. Please try again."
+    },
+    "abort": {
+      "already_configured": "Hub with this IP address is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Futurehome FIMP Options",
+        "description": "Configure integration options"
+      }
+    }
+  }
+}
