@@ -46,6 +46,7 @@ FIMP_SERVICE_SENSOR_TEMP = "sensor_temp"
 FIMP_SERVICE_SENSOR_HUMID = "sensor_humid"
 FIMP_SERVICE_METER_ELEC = "meter_elec"
 FIMP_SERVICE_THERMOSTAT = "thermostat"
+FIMP_SERVICE_PARAMETERS = "parameters"
 
 # FIMP Interface types
 FIMP_INTERFACE_CMD_BINARY_SET = "cmd.binary.set"
@@ -56,6 +57,8 @@ FIMP_INTERFACE_CMD_LVL_GET_REPORT = "cmd.lvl.get_report"
 FIMP_INTERFACE_EVT_LVL_REPORT = "evt.lvl.report"
 FIMP_INTERFACE_CMD_SENSOR_GET_REPORT = "cmd.sensor.get_report"
 FIMP_INTERFACE_EVT_SENSOR_REPORT = "evt.sensor.report"
+FIMP_INTERFACE_CMD_METER_EXT_GET_REPORT = "cmd.meter_ext.get_report"
+FIMP_INTERFACE_EVT_METER_EXT_REPORT = "evt.meter_ext.report"
 
 # FIMP Network and discovery interfaces
 FIMP_INTERFACE_CMD_NETWORK_GET_ALL_NODES = "cmd.network.get_all_nodes"
