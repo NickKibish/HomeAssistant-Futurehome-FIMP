@@ -65,27 +65,44 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         ENTRY_DATA_DEVICES: {},
     }
     
+    # Track if platforms have been set up to avoid duplicates
+    platforms_setup = False
+    
     # Register device discovery callback
     def on_device_discovered(device_address: str, device_data: dict) -> None:
         """Handle discovered thermostat devices."""
-        _LOGGER.info("Discovered thermostat device: %s", device_address)
-        hass.data[DOMAIN][entry.entry_id][ENTRY_DATA_DEVICES][device_address] = device_data
+        nonlocal platforms_setup
         
-        # Trigger platform reload to create entities for new devices
-        asyncio.run_coroutine_threadsafe(
-            hass.config_entries.async_unload_platforms(entry, PLATFORMS), hass.loop
-        )
-        asyncio.run_coroutine_threadsafe(
-            hass.config_entries.async_forward_entry_setups(entry, PLATFORMS), hass.loop
-        )
+        _LOGGER.info("Discovered thermostat device: %s", device_address)
+        
+        # Check if this is a new device
+        existing_devices = hass.data[DOMAIN][entry.entry_id][ENTRY_DATA_DEVICES]
+        is_new_device = device_address not in existing_devices
+        
+        # Store device data
+        existing_devices[device_address] = device_data
+        
+        # Set up platforms after first device discovery
+        if not platforms_setup:
+            platforms_setup = True
+            _LOGGER.info("Setting up platforms after first device discovery")
+            asyncio.run_coroutine_threadsafe(
+                hass.config_entries.async_forward_entry_setups(entry, PLATFORMS), hass.loop
+            )
+        # If platforms are already set up and this is a new device, reload platforms
+        elif is_new_device:
+            _LOGGER.info("New device discovered, reloading platforms to include device %s", device_address)
+            # Reload platforms instead of entire integration to preserve existing data
+            async def reload_platforms():
+                await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+                await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+            
+            asyncio.run_coroutine_threadsafe(reload_platforms(), hass.loop)
     
     client.register_device_discovery_callback(on_device_discovered)
     
     # Start device discovery
     await client.async_start_device_discovery()
-
-    # Set up platforms (will be empty initially, entities added via reload when devices discovered)
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     _LOGGER.info("Futurehome FIMP integration setup completed")
     return True

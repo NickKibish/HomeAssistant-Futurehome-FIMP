@@ -174,6 +174,12 @@ class FimpThermostat(ClimateEntity):
         temp_topic_pattern = f"pt:j1/mt:evt/rt:dev/rn:zigbee/ad:1/sv:sensor_temp/ad:{self._device_address}_1"
         self._client.register_message_callback(temp_topic_pattern, self._handle_temperature_update)
 
+    async def async_added_to_hass(self) -> None:
+        """Handle entity added to Home Assistant."""
+        await super().async_added_to_hass()
+        # Request initial thermostat data
+        await self.async_update()
+
     def _handle_thermostat_update(self, topic: str, message: dict[str, Any]) -> None:
         """Handle thermostat mode and setpoint updates."""
         msg_type = message.get("type")

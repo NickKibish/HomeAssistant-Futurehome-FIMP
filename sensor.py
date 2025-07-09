@@ -155,6 +155,12 @@ class FimpTemperatureSensor(SensorEntity):
         topic_pattern = f"pt:j1/mt:evt/rt:dev/rn:zigbee/ad:1/sv:sensor_temp/ad:{self._service_address}"
         self._client.register_message_callback(topic_pattern, self._handle_temperature_update)
 
+    async def async_added_to_hass(self) -> None:
+        """Handle entity added to Home Assistant."""
+        await super().async_added_to_hass()
+        # Request initial temperature reading
+        await self.async_update()
+
     def _handle_temperature_update(self, topic: str, message: dict[str, Any]) -> None:
         """Handle temperature sensor updates."""
         if message.get("type") == FIMP_INTERFACE_EVT_SENSOR_REPORT:
@@ -239,6 +245,12 @@ class FimpMeterSensor(SensorEntity):
         """Set up MQTT subscriptions for meter updates."""
         topic_pattern = f"pt:j1/mt:evt/rt:dev/rn:zigbee/ad:1/sv:meter_elec/ad:{self._service_address}"
         self._client.register_message_callback(topic_pattern, self._handle_meter_update)
+
+    async def async_added_to_hass(self) -> None:
+        """Handle entity added to Home Assistant."""
+        await super().async_added_to_hass()
+        # Request initial meter reading
+        await self.async_update()
 
     def _handle_meter_update(self, topic: str, message: dict[str, Any]) -> None:
         """Handle meter sensor updates."""
