@@ -156,7 +156,9 @@ class FimpThermostat(ClimateEntity):
         
         # Extract service address for topic generation
         service_address = service_data.get("address", "")
-        address_parts = service_address.split("/")
+        # Extract the last part after the last /ad:
+        # Example: "/rt:dev/rn:zigbee/ad:1/sv:thermostat/ad:1_1" -> "1_1"
+        address_parts = service_address.split("/ad:")
         self._service_address = address_parts[-1] if address_parts else "unknown"
         
         # Set up subscriptions for thermostat updates

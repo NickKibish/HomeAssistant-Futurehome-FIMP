@@ -71,13 +71,13 @@ async def async_setup_entry(
             if service.get("name") == FIMP_SERVICE_METER_ELEC:
                 # Create multiple sensors for different meter values
                 meter_sensors = [
-                    ("p_import", "Power", UnitOfPower.WATT, SensorDeviceClass.POWER),
-                    ("e_import", "Energy", UnitOfEnergy.KILO_WATT_HOUR, SensorDeviceClass.ENERGY),
-                    ("u1", "Voltage", UnitOfElectricPotential.VOLT, SensorDeviceClass.VOLTAGE),
-                    ("i1", "Current", UnitOfElectricCurrent.AMPERE, SensorDeviceClass.CURRENT),
+                    ("p_import", "Power", UnitOfPower.WATT, SensorDeviceClass.POWER, SensorStateClass.MEASUREMENT),
+                    ("e_import", "Energy", UnitOfEnergy.KILO_WATT_HOUR, SensorDeviceClass.ENERGY, SensorStateClass.TOTAL_INCREASING),
+                    ("u1", "Voltage", UnitOfElectricPotential.VOLT, SensorDeviceClass.VOLTAGE, SensorStateClass.MEASUREMENT),
+                    ("i1", "Current", UnitOfElectricCurrent.AMPERE, SensorDeviceClass.CURRENT, SensorStateClass.MEASUREMENT),
                 ]
                 
-                for meter_key, name_suffix, unit, device_class in meter_sensors:
+                for meter_key, name_suffix, unit, device_class, state_class in meter_sensors:
                     entity = FimpMeterSensor(
                         client=client,
                         device_address=device_address,
@@ -87,6 +87,7 @@ async def async_setup_entry(
                         name_suffix=name_suffix,
                         unit=unit,
                         device_class=device_class,
+                        state_class=state_class,
                     )
                     entities.append(entity)
                     _LOGGER.info(
@@ -118,7 +119,9 @@ class FimpTemperatureSensor(SensorEntity):
         
         # Extract service address for topic generation
         service_address = service_data.get("address", "")
-        address_parts = service_address.split("/")
+        # Extract the last part after the last /ad:
+        # Example: "/rt:dev/rn:zigbee/ad:1/sv:sensor_temp/ad:1_1" -> "1_1"
+        address_parts = service_address.split("/ad:")
         self._service_address = address_parts[-1] if address_parts else "unknown"
         
         # Build sensor name
@@ -189,6 +192,7 @@ class FimpMeterSensor(SensorEntity):
         name_suffix: str,
         unit: str,
         device_class: SensorDeviceClass,
+        state_class: SensorStateClass,
     ) -> None:
         """Initialize the meter sensor."""
         self._client = client
@@ -200,7 +204,9 @@ class FimpMeterSensor(SensorEntity):
         
         # Extract service address for topic generation
         service_address = service_data.get("address", "")
-        address_parts = service_address.split("/")
+        # Extract the last part after the last /ad:
+        # Example: "/rt:dev/rn:zigbee/ad:1/sv:sensor_temp/ad:1_1" -> "1_1"
+        address_parts = service_address.split("/ad:")
         self._service_address = address_parts[-1] if address_parts else "unknown"
         
         # Build sensor name
@@ -223,7 +229,7 @@ class FimpMeterSensor(SensorEntity):
         
         # Sensor properties
         self._attr_device_class = device_class
-        self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_state_class = state_class
         self._attr_native_unit_of_measurement = unit
         
         # Subscribe to meter updates
