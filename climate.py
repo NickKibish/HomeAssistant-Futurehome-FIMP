@@ -174,9 +174,23 @@ class FimpThermostat(ClimateEntity):
         topic_pattern = f"pt:j1/mt:evt/rt:dev/rn:zigbee/ad:1/sv:thermostat/ad:{self._service_address}"
         self._client.register_message_callback(topic_pattern, self._handle_thermostat_update)
         
-        # Subscribe to temperature sensor updates for current temperature
-        temp_topic_pattern = f"pt:j1/mt:evt/rt:dev/rn:zigbee/ad:1/sv:sensor_temp/ad:{self._device_address}_1"
-        self._client.register_message_callback(temp_topic_pattern, self._handle_temperature_update)
+        # Find temperature sensor service addresses for this device
+        device_services = self._device_data.get("services", [])
+        temp_sensor_addresses = []
+        
+        for service in device_services:
+            if service.get("name") == "sensor_temp":
+                service_address = service.get("address", "")
+                # Extract the service address part (e.g., "1_1" from "/rt:dev/rn:zigbee/ad:1/sv:sensor_temp/ad:1_1")
+                address_parts = service_address.split("/ad:")
+                if len(address_parts) > 1:
+                    temp_sensor_addresses.append(address_parts[-1])
+        
+        # Subscribe to all temperature sensor updates for this device
+        for temp_address in temp_sensor_addresses:
+            temp_topic_pattern = f"pt:j1/mt:evt/rt:dev/rn:zigbee/ad:1/sv:sensor_temp/ad:{temp_address}"
+            self._client.register_message_callback(temp_topic_pattern, self._handle_temperature_update)
+            _LOGGER.debug("Thermostat %s subscribing to temperature sensor: %s", self._device_address, temp_topic_pattern)
 
     async def async_added_to_hass(self) -> None:
         """Handle entity added to Home Assistant."""

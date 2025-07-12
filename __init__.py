@@ -90,10 +90,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     
     # Register device discovery callback
     def on_device_discovered(device_address: str, device_data: dict) -> None:
-        """Handle discovered thermostat devices."""
+        """Handle discovered devices with supported services."""
         nonlocal platforms_setup
         
-        _LOGGER.info("Discovered thermostat device: %s", device_address)
+        _LOGGER.info("Discovered device: %s", device_address)
         
         # Check if this is a new device
         existing_devices = hass.data[DOMAIN][entry.entry_id][ENTRY_DATA_DEVICES]

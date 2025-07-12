@@ -63,6 +63,8 @@ async def async_setup_entry(
     
     for device_address, device_data in devices.items():
         services = device_data.get("services", [])
+        service_names = [svc.get("name") for svc in services]
+        _LOGGER.info("Processing device %s with services: %s", device_address, ", ".join(service_names))
         
         # Create temperature sensor entities
         for service in services:
@@ -113,7 +115,10 @@ async def async_setup_entry(
                     )
 
     if entities:
+        _LOGGER.info("Adding %d sensor entities total", len(entities))
         async_add_entities(entities, True)
+    else:
+        _LOGGER.warning("No sensor entities to add")
 
 
 class FimpTemperatureSensor(SensorEntity):
@@ -309,7 +314,7 @@ class BridgeConnectionSensor(SensorEntity):
         self._attr_name = "Connection Status"
         self._attr_unique_id = f"{DOMAIN}_{bridge_device_id}_connection"
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
-        self._attr_device_class = SensorDeviceClass.CONNECTIVITY
+        self._attr_device_class = None  # No specific device class for connection status
         self._attr_should_poll = False
         
         # Device info

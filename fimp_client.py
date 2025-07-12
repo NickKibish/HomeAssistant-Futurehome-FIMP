@@ -25,6 +25,11 @@ from .const import (
     FIMP_ZIGBEE_ADAPTER_EVENT_TOPIC,
     FIMP_TOPIC_ROOT,
     FIMP_SERVICE_THERMOSTAT,
+    FIMP_SERVICE_SENSOR_TEMP,
+    FIMP_SERVICE_METER_ELEC,
+    FIMP_SERVICE_SENSOR_HUMID,
+    FIMP_SERVICE_OUT_BIN_SWITCH,
+    FIMP_SERVICE_OUT_LVL_SWITCH,
     FIMP_INTERFACE_CMD_NETWORK_GET_ALL_NODES,
     FIMP_INTERFACE_EVT_NETWORK_ALL_NODES_REPORT,
     FIMP_INTERFACE_CMD_THING_GET_INCLUSION_REPORT,
@@ -345,21 +350,33 @@ class FimpClient:
         if comm_tech != "zigbee":
             return
             
-        # Filter for thermostat services only
-        thermostat_services = [
-            service for service in services 
-            if service.get("name") == FIMP_SERVICE_THERMOSTAT
+        # Define supported services for discovery
+        supported_services = [
+            FIMP_SERVICE_THERMOSTAT,
+            FIMP_SERVICE_SENSOR_TEMP,
+            FIMP_SERVICE_METER_ELEC,
+            FIMP_SERVICE_SENSOR_HUMID,
+            FIMP_SERVICE_OUT_BIN_SWITCH,
+            FIMP_SERVICE_OUT_LVL_SWITCH,
         ]
         
-        if not thermostat_services:
-            _LOGGER.debug("Device %s has no thermostat services, skipping", address)
+        # Filter for supported services
+        device_supported_services = [
+            service for service in services 
+            if service.get("name") in supported_services
+        ]
+        
+        if not device_supported_services:
+            _LOGGER.debug("Device %s has no supported services, skipping", address)
             return
             
+        service_names = [svc.get("name") for svc in device_supported_services]
         _LOGGER.info(
-            "Found Zigbee thermostat device: %s (%s) with %d thermostat services",
+            "Found Zigbee device: %s (%s) with %d supported services: %s",
             address,
             device_data.get("product_name", "Unknown"),
-            len(thermostat_services)
+            len(device_supported_services),
+            ", ".join(service_names)
         )
         
         # Store full device data including services
@@ -376,16 +393,16 @@ class FimpClient:
                 _LOGGER.error("Error in device discovery callback: %s", err)
     
     def register_device_discovery_callback(self, callback: Callable[[str, dict], None]) -> None:
-        """Register a callback for when thermostat devices are discovered."""
+        """Register a callback for when supported devices are discovered."""
         self._device_discovery_callbacks.append(callback)
     
     def get_discovered_devices(self) -> dict[str, dict]:
-        """Get all discovered thermostat devices."""
+        """Get all discovered supported devices."""
         return self._discovered_devices.copy()
     
     async def async_start_device_discovery(self) -> None:
         """Start the device discovery process."""
-        _LOGGER.info("Starting Zigbee thermostat device discovery")
+        _LOGGER.info("Starting Zigbee device discovery")
         
         # First request system component discovery to find adapters
         await self.async_send_fimp_message(
@@ -403,7 +420,7 @@ class FimpClient:
     
     @property
     def discovered_device_count(self) -> int:
-        """Return the number of discovered thermostat devices."""
+        """Return the number of discovered supported devices."""
         return len(self._discovered_devices)
     
     async def async_permit_join(self, duration: int = 120) -> None:
