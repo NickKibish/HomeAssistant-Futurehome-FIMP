@@ -18,6 +18,7 @@ from .const import (
     DOMAIN,
     ENTRY_DATA_CLIENT,
     ENTRY_DATA_DEVICES,
+    ENTRY_DATA_BRIDGE_DEVICE_ID,
     FIMP_SERVICE_THERMOSTAT,
     FIMP_INTERFACE_CMD_MODE_GET_REPORT,
     FIMP_INTERFACE_CMD_MODE_SET,
@@ -41,6 +42,7 @@ async def async_setup_entry(
     """Set up Futurehome FIMP climate entities from a config entry."""
     client: FimpClient = hass.data[DOMAIN][config_entry.entry_id][ENTRY_DATA_CLIENT]
     devices: dict[str, dict] = hass.data[DOMAIN][config_entry.entry_id][ENTRY_DATA_DEVICES]
+    bridge_device_id: str = hass.data[DOMAIN][config_entry.entry_id][ENTRY_DATA_BRIDGE_DEVICE_ID]
 
     entities = []
     
@@ -55,6 +57,7 @@ async def async_setup_entry(
                     device_address=device_address,
                     device_data=device_data,
                     service_data=service,
+                    bridge_device_id=bridge_device_id,
                 )
                 entities.append(entity)
                 _LOGGER.info(
@@ -78,6 +81,7 @@ class FimpThermostat(ClimateEntity):
         device_address: str,
         device_data: dict,
         service_data: dict,
+        bridge_device_id: str,
     ) -> None:
         """Initialize the thermostat."""
         self._client = client
@@ -100,7 +104,7 @@ class FimpThermostat(ClimateEntity):
             "model": device_data.get("product_id", "Unknown"),
             "sw_version": device_data.get("sw_ver"),
             "hw_version": device_data.get("hw_ver"),
-            "via_device": (DOMAIN, "hub"),
+            "via_device": (DOMAIN, bridge_device_id),
         }
         
         # Climate attributes

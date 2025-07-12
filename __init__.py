@@ -8,6 +8,8 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.device_registry import DeviceEntryType
 
 from .const import (
     DOMAIN,
@@ -18,12 +20,15 @@ from .const import (
     ENTRY_DATA_CLIENT,
     ENTRY_DATA_HUB_INFO,
     ENTRY_DATA_DEVICES,
+    ENTRY_DATA_BRIDGE_DEVICE_ID,
+    BRIDGE_MANUFACTURER,
+    BRIDGE_MODEL,
 )
 from .fimp_client import FimpClient
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[str] = ["climate", "sensor"]
+PLATFORMS: list[str] = ["climate", "sensor", "button"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -54,6 +59,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.error("Failed to connect to Futurehome hub: %s", err)
         raise ConfigEntryNotReady(f"Could not connect to hub: {err}") from err
 
+    # Create bridge device in device registry
+    device_registry = dr.async_get(hass)
+    bridge_device_id = f"{DOMAIN}_bridge_{hub_ip.replace('.', '_')}"
+    bridge_device = device_registry.async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, bridge_device_id)},
+        manufacturer=BRIDGE_MANUFACTURER,
+        model=BRIDGE_MODEL,
+        name=f"Futurehome Hub ({hub_ip})",
+        entry_type=DeviceEntryType.SERVICE,
+        sw_version="1.0.0",
+    )
+    _LOGGER.debug("Created bridge device: %s", bridge_device_id)
+
     # Store client and hub info
     hass.data[DOMAIN][entry.entry_id] = {
         ENTRY_DATA_CLIENT: client,
@@ -63,6 +82,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "username": username,
         },
         ENTRY_DATA_DEVICES: {},
+        ENTRY_DATA_BRIDGE_DEVICE_ID: bridge_device_id,
     }
     
     # Track if platforms have been set up to avoid duplicates

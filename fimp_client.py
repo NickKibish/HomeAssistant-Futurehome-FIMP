@@ -405,3 +405,26 @@ class FimpClient:
     def discovered_device_count(self) -> int:
         """Return the number of discovered thermostat devices."""
         return len(self._discovered_devices)
+    
+    async def async_permit_join(self, duration: int = 120) -> None:
+        """Enable Zigbee device pairing for specified duration."""
+        _LOGGER.info("Enabling Zigbee device pairing for %d seconds", duration)
+        await self.async_send_fimp_message(
+            topic=FIMP_ZIGBEE_ADAPTER_TOPIC,
+            service="zigbee",
+            msg_type="cmd.thing.inclusion",
+            value_type="bool",
+            value=True,
+            properties={"supports_pin_request": "true"},
+        )
+    
+    async def async_reboot_hub(self) -> None:
+        """Reboot the Futurehome hub."""
+        _LOGGER.warning("Rebooting Futurehome hub")
+        await self.async_send_fimp_message(
+            topic=FIMP_GATEWAY_TOPIC,
+            service="gateway",
+            msg_type="cmd.system.restart",
+            value_type="null",
+            value=None,
+        )

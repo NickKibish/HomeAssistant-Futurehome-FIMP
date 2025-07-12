@@ -101,3 +101,12 @@ ERROR_UNKNOWN = "unknown"
 ENTRY_DATA_CLIENT = "client"
 ENTRY_DATA_HUB_INFO = "hub_info"
 ENTRY_DATA_DEVICES = "devices"
+ENTRY_DATA_BRIDGE_DEVICE_ID = "bridge_device_id"
+
+# Bridge constants
+BRIDGE_MANUFACTURER = "Futurehome"
+BRIDGE_MODEL = "FIMP Hub"
+
+# FIMP Zigbee adapter interfaces  
+FIMP_INTERFACE_CMD_ZIGBEE_PERMIT_JOIN = "cmd.thing.inclusion"
+FIMP_INTERFACE_CMD_SYSTEM_REBOOT = "cmd.system.restart"

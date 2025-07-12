@@ -18,18 +18,23 @@ from homeassistant.const import (
     UnitOfEnergy,
     UnitOfElectricCurrent,
     UnitOfElectricPotential,
+    EntityCategory,
 )
 
 from .const import (
     DOMAIN,
     ENTRY_DATA_CLIENT,
     ENTRY_DATA_DEVICES,
+    ENTRY_DATA_BRIDGE_DEVICE_ID,
+    ENTRY_DATA_HUB_INFO,
     FIMP_SERVICE_SENSOR_TEMP,
     FIMP_SERVICE_METER_ELEC,
     FIMP_INTERFACE_CMD_SENSOR_GET_REPORT,
     FIMP_INTERFACE_EVT_SENSOR_REPORT,
     FIMP_INTERFACE_CMD_METER_EXT_GET_REPORT,
     FIMP_INTERFACE_EVT_METER_EXT_REPORT,
+    BRIDGE_MANUFACTURER,
+    BRIDGE_MODEL,
 )
 from .fimp_client import FimpClient
 
@@ -44,8 +49,17 @@ async def async_setup_entry(
     """Set up Futurehome FIMP sensor entities from a config entry."""
     client: FimpClient = hass.data[DOMAIN][config_entry.entry_id][ENTRY_DATA_CLIENT]
     devices: dict[str, dict] = hass.data[DOMAIN][config_entry.entry_id][ENTRY_DATA_DEVICES]
+    bridge_device_id: str = hass.data[DOMAIN][config_entry.entry_id][ENTRY_DATA_BRIDGE_DEVICE_ID]
+    hub_info: dict = hass.data[DOMAIN][config_entry.entry_id][ENTRY_DATA_HUB_INFO]
 
     entities = []
+    
+    # Add bridge diagnostic sensors
+    bridge_sensors = [
+        BridgeConnectionSensor(client, bridge_device_id, hub_info),
+        BridgeDeviceCountSensor(client, bridge_device_id, hub_info),
+    ]
+    entities.extend(bridge_sensors)
     
     for device_address, device_data in devices.items():
         services = device_data.get("services", [])
@@ -58,6 +72,7 @@ async def async_setup_entry(
                     device_address=device_address,
                     device_data=device_data,
                     service_data=service,
+                    bridge_device_id=bridge_device_id,
                 )
                 entities.append(entity)
                 _LOGGER.info(
@@ -88,6 +103,7 @@ async def async_setup_entry(
                         unit=unit,
                         device_class=device_class,
                         state_class=state_class,
+                        bridge_device_id=bridge_device_id,
                     )
                     entities.append(entity)
                     _LOGGER.info(
@@ -109,6 +125,7 @@ class FimpTemperatureSensor(SensorEntity):
         device_address: str,
         device_data: dict,
         service_data: dict,
+        bridge_device_id: str,
     ) -> None:
         """Initialize the temperature sensor."""
         self._client = client
@@ -139,7 +156,7 @@ class FimpTemperatureSensor(SensorEntity):
             "model": device_data.get("product_id", "Unknown"),
             "sw_version": device_data.get("sw_ver"),
             "hw_version": device_data.get("hw_ver"),
-            "via_device": (DOMAIN, "hub"),
+            "via_device": (DOMAIN, bridge_device_id),
         }
         
         # Sensor properties
@@ -199,6 +216,7 @@ class FimpMeterSensor(SensorEntity):
         unit: str,
         device_class: SensorDeviceClass,
         state_class: SensorStateClass,
+        bridge_device_id: str,
     ) -> None:
         """Initialize the meter sensor."""
         self._client = client
@@ -230,7 +248,7 @@ class FimpMeterSensor(SensorEntity):
             "model": device_data.get("product_id", "Unknown"),
             "sw_version": device_data.get("sw_ver"),
             "hw_version": device_data.get("hw_ver"),
-            "via_device": (DOMAIN, "hub"),
+            "via_device": (DOMAIN, bridge_device_id),
         }
         
         # Sensor properties
@@ -276,3 +294,94 @@ class FimpMeterSensor(SensorEntity):
             value_type="null",
             value=None,
         )
+
+
+class BridgeConnectionSensor(SensorEntity):
+    """Bridge connection status sensor."""
+
+    def __init__(self, client: FimpClient, bridge_device_id: str, hub_info: dict) -> None:
+        """Initialize the bridge connection sensor."""
+        self._client = client
+        self._bridge_device_id = bridge_device_id
+        self._hub_info = hub_info
+        
+        # Entity configuration
+        self._attr_name = "Connection Status"
+        self._attr_unique_id = f"{DOMAIN}_{bridge_device_id}_connection"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        self._attr_device_class = SensorDeviceClass.CONNECTIVITY
+        self._attr_should_poll = False
+        
+        # Device info
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, bridge_device_id)},
+            "manufacturer": BRIDGE_MANUFACTURER,
+            "model": BRIDGE_MODEL,
+            "name": f"Futurehome Hub ({hub_info['host']})",
+        }
+
+    @property
+    def native_value(self) -> str:
+        """Return the connection status."""
+        return "Connected" if self._client.is_connected else "Disconnected"
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        return True  # Always available to show connection status
+
+    async def async_added_to_hass(self) -> None:
+        """Handle entity added to Home Assistant."""
+        await super().async_added_to_hass()
+        # Register for connection state changes
+        self._client.register_message_callback("connection_status", self._handle_connection_change)
+
+    def _handle_connection_change(self, topic: str, message: dict) -> None:
+        """Handle connection status changes."""
+        self.schedule_update_ha_state()
+
+
+class BridgeDeviceCountSensor(SensorEntity):
+    """Bridge connected device count sensor."""
+
+    def __init__(self, client: FimpClient, bridge_device_id: str, hub_info: dict) -> None:
+        """Initialize the bridge device count sensor."""
+        self._client = client
+        self._bridge_device_id = bridge_device_id
+        self._hub_info = hub_info
+        
+        # Entity configuration
+        self._attr_name = "Connected Devices"
+        self._attr_unique_id = f"{DOMAIN}_{bridge_device_id}_device_count"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_should_poll = False
+        self._attr_native_unit_of_measurement = "devices"
+        
+        # Device info
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, bridge_device_id)},
+            "manufacturer": BRIDGE_MANUFACTURER,
+            "model": BRIDGE_MODEL,
+            "name": f"Futurehome Hub ({hub_info['host']})",
+        }
+
+    @property
+    def native_value(self) -> int:
+        """Return the number of connected devices."""
+        return self._client.discovered_device_count
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        return self._client.is_connected
+
+    async def async_added_to_hass(self) -> None:
+        """Handle entity added to Home Assistant."""
+        await super().async_added_to_hass()
+        # Register for device discovery updates
+        self._client.register_device_discovery_callback(self._handle_device_update)
+
+    def _handle_device_update(self, device_address: str, device_data: dict) -> None:
+        """Handle device discovery updates."""
+        self.schedule_update_ha_state()
