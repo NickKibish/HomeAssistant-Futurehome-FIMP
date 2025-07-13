@@ -114,6 +114,10 @@ class FimpThermostat(ClimateEntity):
             ClimateEntityFeature.PRESET_MODE
         )
         
+        # Ensure temperature step and precision for UI controls
+        self._attr_target_temperature_step = 1.0
+        self._attr_precision = 1.0
+        
         # Extract thermostat capabilities from service properties
         props = service_data.get("props", {})
         sup_modes = props.get("sup_modes", [])
@@ -152,10 +156,10 @@ class FimpThermostat(ClimateEntity):
         self._attr_min_temp = heat_temps.get("min", 5)
         self._attr_max_temp = heat_temps.get("max", 35)
         
-        # Current state
-        self._attr_hvac_mode = HVACMode.OFF
+        # Current state with defaults to show controls
+        self._attr_hvac_mode = HVACMode.HEAT  # Default to heat mode
         self._attr_current_temperature = None
-        self._attr_target_temperature = None
+        self._attr_target_temperature = 20.0  # Default target temperature to show controls
         self._attr_preset_mode = None
         
         # Extract service address for topic generation

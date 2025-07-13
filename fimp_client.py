@@ -182,9 +182,13 @@ class FimpClient:
         )
         
         # Call registered callbacks for this topic pattern
-        for pattern, callbacks in self._message_callbacks.items():
+        # Create a copy to avoid "dictionary changed size during iteration" error
+        callbacks_copy = dict(self._message_callbacks)
+        for pattern, callbacks in callbacks_copy.items():
             if self._topic_matches_pattern(topic, pattern):
-                for callback in callbacks:
+                # Also create a copy of the callback list
+                callbacks_list = list(callbacks)
+                for callback in callbacks_list:
                     try:
                         callback(topic, message)
                     except Exception as err:
