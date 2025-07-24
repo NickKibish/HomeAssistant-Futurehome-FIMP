@@ -28,7 +28,7 @@ from .fimp_client import FimpClient
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[str] = ["climate", "sensor", "button"]
+PLATFORMS: list[str] = ["climate", "sensor", "button", "switch"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
