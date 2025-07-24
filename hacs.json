@@ -1,0 +1,9 @@
+{
+  "name": "Futurehome FIMP",
+  "content_in_root": false,
+  "zip_release": false,
+  "filename": "futurehome_fimp",
+  "country": ["NO"],
+  "render_readme": true,
+  "homeassistant": "2023.1.0"
+}

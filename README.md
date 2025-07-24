@@ -1,24 +1,38 @@
-# HomeAssistant-Futurehome-FIMP
+# Futurehome FIMP Integration for Home Assistant
 
-Home Assistant custom integration for Futurehome FIMP protocol - enables control of Zigbee thermostats and sensors through the Futurehome hub.
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/NickKibish/HomeAssistant-Futurehome-FIMP?style=for-the-badge)
 
-## Overview
-
-This integration allows Home Assistant to communicate with Futurehome devices using the FIMP (Futurehome IoT Messaging Protocol) over MQTT. It provides seamless integration for Zigbee thermostats, temperature sensors, and energy meters connected to your Futurehome hub.
+A Home Assistant integration for Futurehome hubs using the FIMP (Futurehome IoT Messaging Protocol) over MQTT.
 
 ## Features
 
-- **Thermostat Control**: Full climate control with temperature setpoints, HVAC modes, and preset modes
-- **Temperature Sensors**: Real-time temperature monitoring from connected sensors
-- **Energy Monitoring**: Power consumption, energy usage, voltage, and current monitoring
-- **Automatic Discovery**: Discovers all compatible Zigbee devices automatically
-- **Real-time Updates**: Push-based updates for instant state changes
+- 🏠 **Complete Device Support**: Thermostats, sensors, switches, and smart relays
+- ⚡ **Real-time Updates**: Push-based communication via MQTT
+- 🔌 **Smart Relay Control**: Binary switches with power consumption monitoring
+- 📊 **Power Monitoring**: Current, voltage, power consumption, and energy usage
+- 🌡️ **Climate Control**: Temperature sensors and thermostat control
+- 🔄 **Automatic Discovery**: Devices are automatically discovered and configured
+- ⚙️ **Easy Setup**: Configuration via Home Assistant UI
 
 ## Supported Devices
 
-- Zigbee thermostats with FIMP thermostat service
-- Temperature sensors (sensor_temp service)
-- Electric meters (meter_elec service) for power and energy monitoring
+### Thermostats
+- Temperature control and monitoring
+- Mode switching (heating, cooling, auto)
+- Setpoint adjustment
+
+### Sensors
+- Temperature sensors
+- Humidity sensors (when available)
+- Power consumption monitoring
+
+### Smart Relays/Switches
+- Binary switch control (on/off)
+- Real-time power consumption (Watts)
+- Energy consumption tracking (kWh)
+- Voltage and current monitoring
+- Unified device representation
 
 ## Requirements
 
