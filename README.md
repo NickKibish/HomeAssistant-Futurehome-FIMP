@@ -39,7 +39,6 @@ A Home Assistant integration for Futurehome hubs using the FIMP (Futurehome IoT 
 - Home Assistant 2023.1 or later
 - Futurehome hub with MQTT access
 - Zigbee devices connected to the Futurehome hub
-- Python package: `paho-mqtt`
 
 ## Installation
 
@@ -90,34 +89,6 @@ This integration implements the Futurehome IoT Messaging Protocol (FIMP) for dev
 - **Transport**: MQTT over standard Futurehome topics
 - **Message Format**: JSON-based FIMP messages
 - **Discovery**: Automatic Zigbee device discovery via adapter queries
-
-## Troubleshooting
-
-### Connection Issues
-- Verify hub IP address and MQTT credentials
-- Check that MQTT service is running on the hub
-- Ensure Home Assistant can reach the hub network
-
-### Device Discovery
-- Wait 30-60 seconds after adding integration for device discovery
-- Check Home Assistant logs for FIMP messages
-- Verify devices are properly paired with Futurehome hub
-
-### Entity States
-- Entities may show "Unknown" initially until first data is received
-- Check MQTT traffic for proper FIMP message flow
-- Restart integration if entities remain unavailable
-
-## Development
-
-This integration includes a complete development environment:
-
-```bash
-cd ha/
-docker-compose up -d
-```
-
-Access the development Home Assistant instance at http://localhost:8123
 
 ## License
 
