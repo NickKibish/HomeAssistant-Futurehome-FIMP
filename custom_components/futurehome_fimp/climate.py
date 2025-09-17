@@ -218,7 +218,8 @@ class FimpThermostat(ClimateEntity):
                     # Standard HVAC modes
                     self._attr_hvac_mode = self._fimp_to_ha_mode[fimp_mode]
                     self._attr_preset_mode = None
-                self.schedule_update_ha_state()
+                if self.hass is not None:
+                    self.schedule_update_ha_state()
                 
         elif msg_type == FIMP_INTERFACE_EVT_SETPOINT_REPORT:
             # Handle setpoint updates
@@ -228,7 +229,8 @@ class FimpThermostat(ClimateEntity):
                 if temp_str:
                     try:
                         self._attr_target_temperature = float(temp_str)
-                        self.schedule_update_ha_state()
+                        if self.hass is not None:
+                            self.schedule_update_ha_state()
                     except (ValueError, TypeError):
                         pass
 
@@ -238,7 +240,8 @@ class FimpThermostat(ClimateEntity):
             temp_value = message.get("val")
             if temp_value is not None:
                 self._attr_current_temperature = temp_value
-                self.schedule_update_ha_state()
+                if self.hass is not None:
+                    self.schedule_update_ha_state()
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set new target hvac mode."""

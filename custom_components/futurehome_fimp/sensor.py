@@ -191,7 +191,8 @@ class FimpTemperatureSensor(SensorEntity):
         if message.get("type") == FIMP_INTERFACE_EVT_SENSOR_REPORT:
             if message.get("serv") == FIMP_SERVICE_SENSOR_TEMP:
                 self._value = message.get("val")
-                self.schedule_update_ha_state()
+                if self.hass is not None:
+                    self.schedule_update_ha_state()
 
     @property
     def native_value(self) -> float | None:
@@ -213,7 +214,8 @@ class FimpTemperatureSensor(SensorEntity):
         """Handle MQTT connection status change."""
         _LOGGER.debug("Temperature sensor %s connection status changed to %s", self.name, connected)
         # Update Home Assistant about availability change
-        self.schedule_update_ha_state()
+        if self.hass is not None:
+            self.schedule_update_ha_state()
 
     @property
     def available(self) -> bool:
@@ -316,9 +318,10 @@ class FimpMeterSensor(SensorEntity):
                     if self._meter_key == "e_import":
                         old_value = self._value
                         self._value = meter_data
-                        _LOGGER.info("Energy sensor %s updated from simple value: %s -> %s", 
+                        _LOGGER.info("Energy sensor %s updated from simple value: %s -> %s",
                                    self._meter_key, old_value, self._value)
-                        self.schedule_update_ha_state()
+                        if self.hass is not None:
+                            self.schedule_update_ha_state()
                         return
                     else:
                         # For other sensors, skip simple values as they're likely energy data
@@ -332,7 +335,8 @@ class FimpMeterSensor(SensorEntity):
                         old_value = self._value
                         self._value = meter_data[self._meter_key]
                         _LOGGER.info("Meter sensor %s updated: %s -> %s", self._meter_key, old_value, self._value)
-                        self.schedule_update_ha_state()
+                        if self.hass is not None:
+                            self.schedule_update_ha_state()
                     # For energy, also check alternative key names in dict
                     elif self._meter_key == "e_import":
                         energy_keys = ["e_import", "energy", "energy_import", "consumption", "kwh", "e_consumed"]
@@ -342,7 +346,8 @@ class FimpMeterSensor(SensorEntity):
                                 self._value = meter_data[key]
                                 _LOGGER.info("Meter sensor %s found energy data with key '%s': %s -> %s", 
                                            self._meter_key, key, old_value, self._value)
-                                self.schedule_update_ha_state()
+                                if self.hass is not None:
+                                    self.schedule_update_ha_state()
                                 return
                         _LOGGER.debug("Energy key %s not found in meter data dict: %s", self._meter_key, meter_data)
                     else:
@@ -370,7 +375,8 @@ class FimpMeterSensor(SensorEntity):
                         self._value = value[key]
                         _LOGGER.info("Found energy data for %s in service %s with key '%s': %s -> %s", 
                                    self._meter_key, service, key, old_value, self._value)
-                        self.schedule_update_ha_state()
+                        if self.hass is not None:
+                            self.schedule_update_ha_state()
                         return
             elif isinstance(value, (int, float)) and "energy" in msg_type.lower():
                 # Simple energy value
@@ -378,7 +384,8 @@ class FimpMeterSensor(SensorEntity):
                 self._value = value
                 _LOGGER.info("Found simple energy value for %s: %s -> %s", 
                            self._meter_key, old_value, self._value)
-                self.schedule_update_ha_state()
+                if self.hass is not None:
+                    self.schedule_update_ha_state()
                 return
 
     @property
@@ -401,7 +408,8 @@ class FimpMeterSensor(SensorEntity):
         """Handle MQTT connection status change."""
         _LOGGER.debug("Meter sensor %s connection status changed to %s", self.name, connected)
         # Update Home Assistant about availability change
-        self.schedule_update_ha_state()
+        if self.hass is not None:
+            self.schedule_update_ha_state()
 
     @property
     def available(self) -> bool:
@@ -451,7 +459,8 @@ class BridgeConnectionSensor(SensorEntity):
 
     def _handle_connection_change(self, topic: str, message: dict) -> None:
         """Handle connection status changes."""
-        self.schedule_update_ha_state()
+        if self.hass is not None:
+            self.schedule_update_ha_state()
 
 
 class BridgeDeviceCountSensor(SensorEntity):
@@ -497,4 +506,5 @@ class BridgeDeviceCountSensor(SensorEntity):
 
     def _handle_device_update(self, device_address: str, device_data: dict) -> None:
         """Handle device discovery updates."""
-        self.schedule_update_ha_state()
+        if self.hass is not None:
+            self.schedule_update_ha_state()

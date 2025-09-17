@@ -122,7 +122,8 @@ class FimpSwitchEntity(SwitchEntity):
             if message_data.get("type") == FIMP_INTERFACE_EVT_BINARY_REPORT:
                 self._is_on = bool(message_data.get("val", False))
                 self._available = True
-                self.schedule_update_ha_state()
+                if self.hass is not None:
+                    self.schedule_update_ha_state()
                 _LOGGER.debug(
                     "Switch %s state updated to %s",
                     self.name,
@@ -200,10 +201,12 @@ class FimpSwitchEntity(SwitchEntity):
                 err
             )
             self._available = False
-            self.schedule_update_ha_state()
+            if self.hass is not None:
+                self.schedule_update_ha_state()
 
     def _on_connection_status_changed(self, connected: bool) -> None:
         """Handle MQTT connection status change."""
         _LOGGER.debug("Switch %s connection status changed to %s", self.name, connected)
         # Update Home Assistant about availability change
-        self.schedule_update_ha_state()
+        if self.hass is not None:
+            self.schedule_update_ha_state()

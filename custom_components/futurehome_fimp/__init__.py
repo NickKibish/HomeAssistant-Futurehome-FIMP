@@ -91,39 +91,40 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         ENTRY_DATA_BRIDGE_DEVICE_ID: bridge_device_id,
     }
     
-    # Track if platforms have been set up to avoid duplicates
+    # Track platform setup state
     platforms_setup = False
-    
+    platforms_setting_up = False
+
     # Register device discovery callback
     def on_device_discovered(device_address: str, device_data: dict) -> None:
         """Handle discovered devices with supported services."""
-        nonlocal platforms_setup
-        
+        nonlocal platforms_setup, platforms_setting_up
+
         _LOGGER.info("Discovered device: %s", device_address)
-        
-        # Check if this is a new device
-        existing_devices = hass.data[DOMAIN][entry.entry_id][ENTRY_DATA_DEVICES]
-        is_new_device = device_address not in existing_devices
-        
+
         # Store device data
+        existing_devices = hass.data[DOMAIN][entry.entry_id][ENTRY_DATA_DEVICES]
         existing_devices[device_address] = device_data
-        
-        # Set up platforms after first device discovery
-        if not platforms_setup:
-            platforms_setup = True
+
+        # Set up platforms after first device discovery (only once)
+        if not platforms_setup and not platforms_setting_up:
+            platforms_setting_up = True
             _LOGGER.info("Setting up platforms after first device discovery")
-            asyncio.run_coroutine_threadsafe(
-                hass.config_entries.async_forward_entry_setups(entry, PLATFORMS), hass.loop
-            )
-        # If platforms are already set up and this is a new device, reload platforms
-        elif is_new_device:
-            _LOGGER.info("New device discovered, reloading platforms to include device %s", device_address)
-            # Reload platforms instead of entire integration to preserve existing data
-            async def reload_platforms():
-                await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-                await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-            
-            asyncio.run_coroutine_threadsafe(reload_platforms(), hass.loop)
+
+            async def setup_platforms():
+                nonlocal platforms_setup, platforms_setting_up
+                try:
+                    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+                    platforms_setup = True
+                    _LOGGER.info("Platforms setup completed")
+                except Exception as err:
+                    _LOGGER.error("Failed to setup platforms: %s", err)
+                finally:
+                    platforms_setting_up = False
+
+            asyncio.run_coroutine_threadsafe(setup_platforms(), hass.loop)
+        # For subsequent device discoveries, just let the existing platforms handle the new devices
+        # The platforms will automatically pick up new devices from the stored device data
     
     client.register_device_discovery_callback(on_device_discovered)
     
@@ -138,22 +139,48 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     _LOGGER.debug("Unloading Futurehome FIMP integration")
 
-    # Unload platforms
-    if PLATFORMS:
-        unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-        if not unload_ok:
-            return False
+    # Check if integration data exists
+    if DOMAIN not in hass.data or entry.entry_id not in hass.data[DOMAIN]:
+        _LOGGER.debug("Integration data not found, nothing to unload")
+        return True
 
-    # Disconnect MQTT client
-    if DOMAIN in hass.data and entry.entry_id in hass.data[DOMAIN]:
+    # Disconnect MQTT client first
+    try:
         client: FimpClient = hass.data[DOMAIN][entry.entry_id][ENTRY_DATA_CLIENT]
         await client.async_disconnect()
+        _LOGGER.debug("MQTT client disconnected")
+    except Exception as err:
+        _LOGGER.warning("Error disconnecting MQTT client: %s", err)
 
-        # Remove data
+    # Unload platforms only if they were loaded
+    unload_ok = True
+    try:
+        unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+        _LOGGER.debug("Platforms unloaded successfully")
+    except ValueError as err:
+        if "Config entry was never loaded" in str(err):
+            _LOGGER.debug("Platforms were never loaded, skipping unload")
+            unload_ok = True  # This is not an error, just means platforms weren't loaded
+        else:
+            _LOGGER.error("Error unloading platforms: %s", err)
+            unload_ok = False
+    except Exception as err:
+        _LOGGER.error("Unexpected error unloading platforms: %s", err)
+        unload_ok = False
+
+    # Remove data
+    try:
         hass.data[DOMAIN].pop(entry.entry_id)
+        _LOGGER.debug("Integration data removed")
+    except KeyError:
+        _LOGGER.debug("Integration data was already removed")
 
-    _LOGGER.info("Futurehome FIMP integration unloaded successfully")
-    return True
+    if unload_ok:
+        _LOGGER.info("Futurehome FIMP integration unloaded successfully")
+    else:
+        _LOGGER.warning("Futurehome FIMP integration unloaded with warnings")
+
+    return unload_ok
 
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
