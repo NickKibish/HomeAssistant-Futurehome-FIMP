@@ -37,23 +37,27 @@ async def async_setup_entry(
     devices = hass.data[DOMAIN][entry.entry_id][ENTRY_DATA_DEVICES]
     bridge_device_id = hass.data[DOMAIN][entry.entry_id][ENTRY_DATA_BRIDGE_DEVICE_ID]
 
-    entities = []
+    # Track which devices have already had entities created
+    processed_devices: set[str] = set()
 
-    for device_address, device_data in devices.items():
+    def create_entities_for_device(device_address: str, device_data: dict) -> list:
+        """Create switch entities for a device."""
+        entities = []
+
         if "services" not in device_data:
-            continue
+            return entities
 
         # Find binary switch services
         for service in device_data["services"]:
             if service["name"] == FIMP_SERVICE_OUT_BIN_SWITCH and service.get("enabled", True):
                 service_address = service["address"]
-                
+
                 _LOGGER.debug(
                     "Creating switch entity for device %s, service %s",
                     device_address,
                     service_address
                 )
-                
+
                 entity = FimpSwitchEntity(
                     client=client,
                     device_address=device_address,
@@ -63,9 +67,39 @@ async def async_setup_entry(
                 )
                 entities.append(entity)
 
-    if entities:
-        async_add_entities(entities, update_before_add=True)
-        _LOGGER.info("Added %d switch entities", len(entities))
+        return entities
+
+    # Create entities for devices that already exist
+    initial_entities = []
+    for device_address, device_data in devices.items():
+        entities = create_entities_for_device(device_address, device_data)
+        initial_entities.extend(entities)
+        if entities:
+            processed_devices.add(device_address)
+
+    if initial_entities:
+        async_add_entities(initial_entities, update_before_add=True)
+        _LOGGER.info("Added %d initial switch entities", len(initial_entities))
+
+    # Register callback for dynamically discovered devices
+    def on_device_discovered(device_address: str, device_data: dict) -> None:
+        """Handle newly discovered devices (called from MQTT thread)."""
+        # Schedule entity creation in Home Assistant event loop
+        def add_entities_callback():
+            if device_address not in processed_devices:
+                entities = create_entities_for_device(device_address, device_data)
+                if entities:
+                    async_add_entities(entities, update_before_add=True)
+                    processed_devices.add(device_address)
+                    _LOGGER.info(
+                        "Dynamically added %d switch entities for device %s",
+                        len(entities),
+                        device_address
+                    )
+
+        hass.loop.call_soon_threadsafe(add_entities_callback)
+
+    client.register_device_discovery_callback(on_device_discovered)
 
 
 class FimpSwitchEntity(SwitchEntity):
