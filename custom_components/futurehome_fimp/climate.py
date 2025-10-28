@@ -125,32 +125,27 @@ class FimpThermostat(ClimateEntity):
         sup_temperatures = props.get("sup_temperatures", {})
         
         # Map FIMP modes to Home Assistant HVAC modes
+        # For floor heating thermostats, we only use HEAT mode
         self._fimp_to_ha_mode = {
-            "off": HVACMode.OFF,
             "heat": HVACMode.HEAT,
-            "cool": HVACMode.COOL,
-            "auto": HVACMode.AUTO,
-            "home": HVACMode.HEAT,  # Custom mode mapped to heat
-            "away": HVACMode.OFF,   # Custom mode mapped to off
-            "sleep": HVACMode.HEAT, # Custom mode mapped to heat
         }
-        
-        self._ha_to_fimp_mode = {v: k for k, v in self._fimp_to_ha_mode.items()}
-        
-        # Set supported HVAC modes
-        self._attr_hvac_modes = []
-        for fimp_mode in sup_modes:
-            if fimp_mode in self._fimp_to_ha_mode:
-                ha_mode = self._fimp_to_ha_mode[fimp_mode]
-                if ha_mode not in self._attr_hvac_modes:
-                    self._attr_hvac_modes.append(ha_mode)
-        
-        # Always ensure OFF mode is available
-        if HVACMode.OFF not in self._attr_hvac_modes:
-            self._attr_hvac_modes.append(HVACMode.OFF)
-            
-        # Set preset modes (custom FIMP modes)
+
+        self._ha_to_fimp_mode = {HVACMode.HEAT: "heat"}
+
+        # Set supported HVAC modes - only HEAT for floor heating
+        self._attr_hvac_modes = [HVACMode.HEAT]
+
+        # Set preset modes (custom FIMP modes like sleep, away, home, etc.)
+        # These are scheduling/comfort modes that control the thermostat behavior
         self._attr_preset_modes = [mode for mode in sup_modes if mode not in ["off", "heat", "cool", "auto"]]
+
+        _LOGGER.info(
+            "Thermostat %s initialized - Supported modes: %s, HVAC modes: %s, Preset modes: %s",
+            device_address,
+            sup_modes,
+            self._attr_hvac_modes,
+            self._attr_preset_modes
+        )
         
         # Set temperature limits
         heat_temps = sup_temperatures.get("heat", {})
@@ -211,17 +206,27 @@ class FimpThermostat(ClimateEntity):
         if msg_type == FIMP_INTERFACE_EVT_MODE_REPORT:
             # Handle mode updates
             fimp_mode = message.get("val")
-            if fimp_mode in self._fimp_to_ha_mode:
-                if fimp_mode in ["home", "away", "sleep"]:
-                    # Custom preset modes
-                    self._attr_preset_mode = fimp_mode
-                    self._attr_hvac_mode = self._fimp_to_ha_mode[fimp_mode]
-                else:
-                    # Standard HVAC modes
-                    self._attr_hvac_mode = self._fimp_to_ha_mode[fimp_mode]
-                    self._attr_preset_mode = None
-                if self.hass is not None:
-                    self.schedule_update_ha_state()
+
+            # Check if this is a preset mode
+            if fimp_mode in self._attr_preset_modes:
+                # This is a custom preset mode (home, away, sleep, etc.)
+                self._attr_preset_mode = fimp_mode
+                self._attr_hvac_mode = HVACMode.HEAT  # Preset modes operate in heat mode
+            elif fimp_mode == "heat":
+                # Standard heat mode - clear preset
+                self._attr_hvac_mode = HVACMode.HEAT
+                self._attr_preset_mode = None
+            else:
+                # Unknown mode - log warning
+                _LOGGER.warning(
+                    "Thermostat %s received unexpected mode: %s",
+                    self._device_address,
+                    fimp_mode
+                )
+                return
+
+            if self.hass is not None:
+                self.schedule_update_ha_state()
                 
         elif msg_type == FIMP_INTERFACE_EVT_SETPOINT_REPORT:
             # Handle setpoint updates
@@ -281,22 +286,17 @@ class FimpThermostat(ClimateEntity):
         """Set new target hvac mode."""
         if hvac_mode not in self._attr_hvac_modes:
             return
-            
-        # Find corresponding FIMP mode
-        fimp_mode = None
-        for fimp, ha in self._fimp_to_ha_mode.items():
-            if ha == hvac_mode:
-                fimp_mode = fimp
-                break
-                
-        if fimp_mode:
+
+        # For floor heating thermostats, we only support HEAT mode
+        # Setting HEAT mode means clearing any preset
+        if hvac_mode == HVACMode.HEAT:
             topic = f"pt:j1/mt:cmd/rt:dev/rn:zigbee/ad:1/sv:thermostat/ad:{self._service_address}"
             await self._client.async_send_fimp_message(
                 topic=topic,
                 service="thermostat",
                 msg_type=FIMP_INTERFACE_CMD_MODE_SET,
                 value_type="string",
-                value=fimp_mode,
+                value="heat",
             )
 
     async def async_set_temperature(self, **kwargs) -> None:
