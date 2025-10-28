@@ -52,20 +52,16 @@ async def async_setup_entry(
     bridge_device_id: str = hass.data[DOMAIN][config_entry.entry_id][ENTRY_DATA_BRIDGE_DEVICE_ID]
     hub_info: dict = hass.data[DOMAIN][config_entry.entry_id][ENTRY_DATA_HUB_INFO]
 
-    entities = []
-    
-    # Add bridge diagnostic sensors
-    bridge_sensors = [
-        BridgeConnectionSensor(client, bridge_device_id, hub_info),
-        BridgeDeviceCountSensor(client, bridge_device_id, hub_info),
-    ]
-    entities.extend(bridge_sensors)
-    
-    for device_address, device_data in devices.items():
+    # Track which devices have already had entities created
+    processed_devices: set[str] = set()
+
+    def create_entities_for_device(device_address: str, device_data: dict) -> list:
+        """Create sensor entities for a device."""
+        entities = []
         services = device_data.get("services", [])
         service_names = [svc.get("name") for svc in services]
         _LOGGER.info("Processing device %s with services: %s", device_address, ", ".join(service_names))
-        
+
         # Create temperature sensor entities
         for service in services:
             if service.get("name") == FIMP_SERVICE_SENSOR_TEMP:
@@ -82,7 +78,7 @@ async def async_setup_entry(
                     device_address,
                     service.get("address", "unknown")
                 )
-        
+
         # Create power consumption sensor entities
         for service in services:
             if service.get("name") == FIMP_SERVICE_METER_ELEC:
@@ -93,7 +89,7 @@ async def async_setup_entry(
                     ("u1", "Voltage", UnitOfElectricPotential.VOLT, SensorDeviceClass.VOLTAGE, SensorStateClass.MEASUREMENT),
                     ("i1", "Current", UnitOfElectricCurrent.AMPERE, SensorDeviceClass.CURRENT, SensorStateClass.MEASUREMENT),
                 ]
-                
+
                 for meter_key, name_suffix, unit, device_class, state_class in meter_sensors:
                     entity = FimpMeterSensor(
                         client=client,
@@ -114,11 +110,46 @@ async def async_setup_entry(
                         device_address
                     )
 
-    if entities:
-        _LOGGER.info("Adding %d sensor entities total", len(entities))
-        async_add_entities(entities, True)
+        return entities
+
+    # Add bridge diagnostic sensors
+    initial_entities = [
+        BridgeConnectionSensor(client, bridge_device_id, hub_info),
+        BridgeDeviceCountSensor(client, bridge_device_id, hub_info),
+    ]
+
+    # Create entities for devices that already exist
+    for device_address, device_data in devices.items():
+        entities = create_entities_for_device(device_address, device_data)
+        initial_entities.extend(entities)
+        if entities:
+            processed_devices.add(device_address)
+
+    if initial_entities:
+        _LOGGER.info("Adding %d initial sensor entities", len(initial_entities))
+        async_add_entities(initial_entities, True)
     else:
         _LOGGER.warning("No sensor entities to add")
+
+    # Register callback for dynamically discovered devices
+    def on_device_discovered(device_address: str, device_data: dict) -> None:
+        """Handle newly discovered devices (called from MQTT thread)."""
+        # Schedule entity creation in Home Assistant event loop
+        def add_entities_callback():
+            if device_address not in processed_devices:
+                entities = create_entities_for_device(device_address, device_data)
+                if entities:
+                    async_add_entities(entities, update_before_add=True)
+                    processed_devices.add(device_address)
+                    _LOGGER.info(
+                        "Dynamically added %d sensor entities for device %s",
+                        len(entities),
+                        device_address
+                    )
+
+        hass.loop.call_soon_threadsafe(add_entities_callback)
+
+    client.register_device_discovery_callback(on_device_discovered)
 
 
 class FimpTemperatureSensor(SensorEntity):
