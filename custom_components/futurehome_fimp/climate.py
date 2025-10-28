@@ -8,6 +8,7 @@ from homeassistant.components.climate import (
     ClimateEntity,
     ClimateEntityFeature,
     HVACMode,
+    HVACAction,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -158,6 +159,7 @@ class FimpThermostat(ClimateEntity):
         
         # Current state with defaults to show controls
         self._attr_hvac_mode = HVACMode.HEAT  # Default to heat mode
+        self._attr_hvac_action = HVACAction.IDLE  # Default to idle state
         self._attr_current_temperature = None
         self._attr_target_temperature = 20.0  # Default target temperature to show controls
         self._attr_preset_mode = None
@@ -233,6 +235,38 @@ class FimpThermostat(ClimateEntity):
                             self.schedule_update_ha_state()
                     except (ValueError, TypeError):
                         pass
+
+        elif msg_type == FIMP_INTERFACE_EVT_STATE_REPORT:
+            # Handle state updates (idle or heat for floor heating thermostats)
+            fimp_state = message.get("val")
+            _LOGGER.info(
+                "Thermostat %s state report received - FIMP state: %s, current HA action: %s",
+                self._device_address,
+                fimp_state,
+                self._attr_hvac_action
+            )
+
+            # Map FIMP state to Home Assistant HVAC action
+            if fimp_state == "idle":
+                self._attr_hvac_action = HVACAction.IDLE
+            elif fimp_state == "heat":
+                self._attr_hvac_action = HVACAction.HEATING
+            else:
+                _LOGGER.warning(
+                    "Thermostat %s received unexpected FIMP state: %s (expected 'idle' or 'heat')",
+                    self._device_address,
+                    fimp_state
+                )
+                return
+
+            _LOGGER.info(
+                "Thermostat %s HVAC action updated to: %s (FIMP state: %s)",
+                self._device_address,
+                self._attr_hvac_action,
+                fimp_state
+            )
+            if self.hass is not None:
+                self.schedule_update_ha_state()
 
     def _handle_temperature_update(self, topic: str, message: dict[str, Any]) -> None:
         """Handle current temperature updates."""
@@ -324,4 +358,13 @@ class FimpThermostat(ClimateEntity):
             msg_type=FIMP_INTERFACE_CMD_SETPOINT_GET_REPORT,
             value_type="string",
             value="heat",
+        )
+
+        # Request current state (idle/heating)
+        await self._client.async_send_fimp_message(
+            topic=topic,
+            service="thermostat",
+            msg_type=FIMP_INTERFACE_CMD_STATE_GET_REPORT,
+            value_type="null",
+            value=None,
         )
