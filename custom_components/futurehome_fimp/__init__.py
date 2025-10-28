@@ -109,11 +109,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Set up platforms after first device discovery (only once)
         if not platforms_setup and not platforms_setting_up:
             platforms_setting_up = True
-            _LOGGER.info("Setting up platforms after first device discovery")
+            _LOGGER.info("First device discovered, waiting for more devices before platform setup...")
 
-            async def setup_platforms():
+            async def setup_platforms_delayed():
                 nonlocal platforms_setup, platforms_setting_up
                 try:
+                    device_count = len(hass.data[DOMAIN][entry.entry_id][ENTRY_DATA_DEVICES])
+                    _LOGGER.info("Setting up platforms with %d discovered devices", device_count)
                     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
                     platforms_setup = True
                     _LOGGER.info("Platforms setup completed")
@@ -122,12 +124,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 finally:
                     platforms_setting_up = False
 
-            asyncio.run_coroutine_threadsafe(setup_platforms(), hass.loop)
-        # For subsequent device discoveries, just let the existing platforms handle the new devices
-        # The platforms will automatically pick up new devices from the stored device data
-    
+            asyncio.run_coroutine_threadsafe(setup_platforms_delayed(), hass.loop)
+
     client.register_device_discovery_callback(on_device_discovered)
-    
+
     # Start device discovery
     await client.async_start_device_discovery()
 

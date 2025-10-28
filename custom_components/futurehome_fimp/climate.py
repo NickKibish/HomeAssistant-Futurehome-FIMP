@@ -11,7 +11,7 @@ from homeassistant.components.climate import (
     HVACAction,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.const import UnitOfTemperature
 
@@ -45,11 +45,14 @@ async def async_setup_entry(
     devices: dict[str, dict] = hass.data[DOMAIN][config_entry.entry_id][ENTRY_DATA_DEVICES]
     bridge_device_id: str = hass.data[DOMAIN][config_entry.entry_id][ENTRY_DATA_BRIDGE_DEVICE_ID]
 
-    entities = []
-    
-    for device_address, device_data in devices.items():
+    # Track which devices have already had entities created
+    processed_devices: set[str] = set()
+
+    def create_entities_for_device(device_address: str, device_data: dict) -> list[FimpThermostat]:
+        """Create thermostat entities for a device."""
+        entities = []
         services = device_data.get("services", [])
-        
+
         # Find thermostat services
         for service in services:
             if service.get("name") == FIMP_SERVICE_THERMOSTAT:
@@ -66,9 +69,39 @@ async def async_setup_entry(
                     device_address,
                     device_data.get("product_name", "Unknown Thermostat")
                 )
+        return entities
 
-    if entities:
-        async_add_entities(entities, True)
+    # Create entities for devices that already exist
+    initial_entities = []
+    for device_address, device_data in devices.items():
+        entities = create_entities_for_device(device_address, device_data)
+        initial_entities.extend(entities)
+        if entities:
+            processed_devices.add(device_address)
+
+    if initial_entities:
+        async_add_entities(initial_entities, True)
+        _LOGGER.info("Added %d initial thermostat entities", len(initial_entities))
+
+    # Register callback for dynamically discovered devices
+    def on_device_discovered(device_address: str, device_data: dict) -> None:
+        """Handle newly discovered devices (called from MQTT thread)."""
+        # Schedule entity creation in Home Assistant event loop
+        def add_entities_callback():
+            if device_address not in processed_devices:
+                entities = create_entities_for_device(device_address, device_data)
+                if entities:
+                    async_add_entities(entities, update_before_add=True)
+                    processed_devices.add(device_address)
+                    _LOGGER.info(
+                        "Dynamically added %d thermostat entities for device %s",
+                        len(entities),
+                        device_address
+                    )
+
+        hass.loop.call_soon_threadsafe(add_entities_callback)
+
+    client.register_device_discovery_callback(on_device_discovered)
 
 
 
@@ -165,6 +198,13 @@ class FimpThermostat(ClimateEntity):
         # Example: "/rt:dev/rn:zigbee/ad:1/sv:thermostat/ad:1_1" -> "1_1"
         address_parts = service_address.split("/ad:")
         self._service_address = address_parts[-1] if address_parts else "unknown"
+
+        _LOGGER.info(
+            "Thermostat device %s service address extracted: %s (from: %s)",
+            device_address,
+            self._service_address,
+            service_address
+        )
         
         # Set up subscriptions for thermostat updates
         self._setup_subscriptions()
